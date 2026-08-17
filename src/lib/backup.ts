@@ -1,14 +1,14 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useAppStore, type SessionDuration, type ThemePreference, type WeeklyGoal } from '@/store/useAppStore';
 
 const BACKUP_VERSION = 1;
-const BACKUP_FILENAME = 'pine-backup.json';
+const BACKUP_FILENAME = 'pine-backup.pine';
 
 const WEEKLY_GOALS: WeeklyGoal[] = [1, 2, 3, 4, 5, 6, 7];
 const THEMES: ThemePreference[] = ['light', 'dark', 'device'];
-const DURATIONS: SessionDuration[] = [1, 5, 10, 30];
+const DURATIONS: SessionDuration[] = [5, 10, 30];
 
 interface BackupData {
   name: string;
@@ -65,10 +65,9 @@ function parseBackup(raw: string): BackupData {
   };
 }
 
-/** Writes the user's data to a JSON file and opens the system share sheet so they can save it anywhere. */
-export async function exportBackup(): Promise<void> {
+function buildBackupPayload() {
   const state = useAppStore.getState();
-  const payload = {
+  return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     data: {
@@ -79,20 +78,43 @@ export async function exportBackup(): Promise<void> {
       completedByMonth: state.completedByMonth,
     } satisfies BackupData,
   };
+}
 
+/** Writes the user's data to a .pine backup file (JSON content under a custom extension,
+ * so other apps don't offer to open it) and opens the system share sheet so they can save it anywhere. */
+export async function exportBackup(): Promise<void> {
   const file = new File(Paths.cache, BACKUP_FILENAME);
   if (file.exists) file.delete();
-  file.write(JSON.stringify(payload, null, 2));
+  file.write(JSON.stringify(buildBackupPayload(), null, 2));
 
   const canShare = await Sharing.isAvailableAsync();
   if (!canShare) throw new Error('Sharing is not available on this device.');
-  await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export Pine data' });
+  await Sharing.shareAsync(file.uri, {
+    mimeType: 'application/octet-stream',
+    dialogTitle: 'Export Pine data',
+  });
 }
 
-/** Lets the user pick a previously exported JSON file and overwrites the current store with its contents. */
+/** Lets the user pick a folder on their device and writes the backup straight into it,
+ * as a direct alternative to whatever targets happen to show up in the share sheet. */
+export async function saveBackupToDevice(): Promise<'saved' | 'cancelled'> {
+  let directory: Directory;
+  try {
+    directory = await Directory.pickDirectoryAsync();
+  } catch (err) {
+    if (err instanceof Error && /cancel/i.test(err.message)) return 'cancelled';
+    throw err;
+  }
+
+  const file = directory.createFile(BACKUP_FILENAME, 'application/octet-stream');
+  file.write(JSON.stringify(buildBackupPayload(), null, 2));
+  return 'saved';
+}
+
+/** Lets the user pick a previously exported .pine file and overwrites the current store with its contents. */
 export async function importBackup(): Promise<'imported' | 'cancelled'> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: ['application/json', 'text/plain'],
+    type: '*/*',
     copyToCacheDirectory: true,
   });
   if (result.canceled || !result.assets[0]) return 'cancelled';

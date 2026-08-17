@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { PillButton } from '@/components/PillButton';
@@ -14,12 +15,27 @@ import { useAmbientLoop, useCompletionChime } from '@/lib/sound';
 import { useAppStore, type SessionDuration } from '@/store/useAppStore';
 import { fonts, sessionUi } from '@/theme/tokens';
 
-const DURATIONS: SessionDuration[] = [5, 10, 30];
+const DURATIONS: SessionDuration[] = [1, 5, 10, 30];
 
 function CheckIcon() {
   return (
     <Svg width={14} height={11} viewBox="0 0 14 11">
       <Path d="M1 5.5 L5 10 L13 1" stroke={sessionUi.ink} strokeWidth={1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 14 14">
+      <Path
+        d="M8 3 L4 7 L8 11"
+        stroke={sessionUi.ink}
+        strokeWidth={1.8}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -35,9 +51,9 @@ export default function SessionScreen() {
   const endSessionEarly = useAppStore((s) => s.endSessionEarly);
   const dismissJustFinished = useAppStore((s) => s.dismissJustFinished);
 
-  const { formatted } = useSessionTimer();
+  const { formatted, remainingSeconds } = useSessionTimer();
 
-  useAmbientLoop(isRunning);
+  useAmbientLoop(isRunning, remainingSeconds);
   const playChime = useCompletionChime();
   const wasJustFinished = useRef(justFinished);
 
@@ -78,9 +94,16 @@ export default function SessionScreen() {
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.content}>
-          <View style={styles.headerBlock}>
-            <Text style={styles.kicker}>{kicker}</Text>
-            <Text style={styles.title}>{title}</Text>
+          <View style={styles.topSection}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+              <BackIcon />
+            </Pressable>
+
+            <View style={styles.headerBlock}>
+              <Text style={styles.kicker}>{kicker}</Text>
+              <Text style={styles.title}>{title}</Text>
+            </View>
           </View>
 
           {!isRunning && justFinished && (
@@ -167,6 +190,19 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 46,
     justifyContent: 'space-between',
+  },
+  topSection: {
+    gap: 20,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: sessionUi.glassBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   headerBlock: {
     alignItems: 'center',

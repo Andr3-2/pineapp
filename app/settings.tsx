@@ -17,7 +17,7 @@ import Svg, { Path } from 'react-native-svg';
 import { GoalPicker } from '@/components/GoalPicker';
 import { PillButton } from '@/components/PillButton';
 import { ThemePicker } from '@/components/ThemePicker';
-import { exportBackup, importBackup } from '@/lib/backup';
+import { exportBackup, importBackup, saveBackupToDevice } from '@/lib/backup';
 import { useAppStore } from '@/store/useAppStore';
 import { fonts } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
@@ -39,7 +39,7 @@ function BackIcon({ color }: { color: string }) {
 
 export default function SettingsScreen() {
   const { colors, scheme } = useTheme();
-  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [busy, setBusy] = useState<'export' | 'save' | 'import' | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   const name = useAppStore((s) => s.name);
@@ -57,6 +57,19 @@ export default function SettingsScreen() {
       setStatus('Data exported.');
     } catch (err) {
       Alert.alert('Export failed', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleSaveToDevice = async () => {
+    setBusy('save');
+    setStatus(null);
+    try {
+      const result = await saveBackupToDevice();
+      if (result === 'saved') setStatus('Data saved to device.');
+    } catch (err) {
+      Alert.alert('Save failed', err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setBusy(null);
     }
@@ -129,6 +142,15 @@ export default function SettingsScreen() {
               <PillButton
                 label={busy === 'export' ? 'Exporting…' : 'Export data'}
                 onPress={handleExport}
+                disabled={busy !== null}
+                height={54}
+                backgroundColor="transparent"
+                borderColor={colors.line}
+                textColor={colors.ink}
+              />
+              <PillButton
+                label={busy === 'save' ? 'Saving…' : 'Save to device'}
+                onPress={handleSaveToDevice}
                 disabled={busy !== null}
                 height={54}
                 backgroundColor="transparent"

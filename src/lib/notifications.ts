@@ -19,7 +19,6 @@ async function ensureAndroidChannel() {
   await Notifications.setNotificationChannelAsync(SESSION_CHANNEL_ID, {
     name: 'Session reminders',
     importance: Notifications.AndroidImportance.HIGH,
-    sound: 'default',
   });
   channelReady = true;
 }
