@@ -37,7 +37,7 @@ jobs:
 
       - name: Publish GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLISH_APK_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" "pine-${{ github.ref_name }}.apk" \
             --title "${{ github.ref_name }}" \
