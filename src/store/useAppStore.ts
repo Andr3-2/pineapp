@@ -12,6 +12,17 @@ export interface SessionRecord {
   minutes: number;
 }
 
+export interface Reminder {
+  id: string;
+  hour: number;
+  minute: number;
+  /** Length 7, index 0 = Monday ... 6 = Sunday, matching the calendar's convention. */
+  days: boolean[];
+  enabled: boolean;
+}
+
+export const MAX_REMINDERS = 5;
+
 interface AppState {
   // Onboarding
   name: string;
@@ -24,6 +35,9 @@ interface AppState {
   sessions: SessionRecord[];
   viewedYear: number;
   viewedMonth: number;
+
+  // Reminders
+  reminders: Reminder[];
 
   // Session
   selectedDuration: SessionDuration;
@@ -46,6 +60,7 @@ interface AppState {
     selectedDuration: SessionDuration;
     completedByMonth: Record<string, number[]>;
     sessions: SessionRecord[];
+    reminders: Reminder[];
   }) => void;
 
   pageMonth: (delta: number) => void;
@@ -57,6 +72,11 @@ interface AppState {
   finishSession: () => void;
   dismissJustFinished: () => void;
   setDndPromptDismissed: (dismissed: boolean) => void;
+
+  addReminder: (reminder: { hour: number; minute: number; days: boolean[] }) => Reminder | null;
+  updateReminder: (id: string, patch: { hour: number; minute: number; days: boolean[] }) => void;
+  deleteReminder: (id: string) => void;
+  setReminderEnabled: (id: string, enabled: boolean) => void;
 }
 
 const today = new Date();
@@ -73,6 +93,8 @@ export const useAppStore = create<AppState>()(
       sessions: [],
       viewedYear: today.getFullYear(),
       viewedMonth: today.getMonth(),
+
+      reminders: [],
 
       selectedDuration: 10,
       isRunning: false,
@@ -145,6 +167,31 @@ export const useAppStore = create<AppState>()(
 
       dismissJustFinished: () => set({ justFinished: false }),
       setDndPromptDismissed: (dndPromptDismissed) => set({ dndPromptDismissed }),
+
+      addReminder: (reminder) => {
+        if (get().reminders.length >= MAX_REMINDERS) return null;
+        const created: Reminder = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          enabled: true,
+          ...reminder,
+        };
+        set({ reminders: [...get().reminders, created] });
+        return created;
+      },
+
+      updateReminder: (id, patch) => {
+        set({
+          reminders: get().reminders.map((r) => (r.id === id ? { ...r, ...patch, enabled: true } : r)),
+        });
+      },
+
+      deleteReminder: (id) => {
+        set({ reminders: get().reminders.filter((r) => r.id !== id) });
+      },
+
+      setReminderEnabled: (id, enabled) => {
+        set({ reminders: get().reminders.map((r) => (r.id === id ? { ...r, enabled } : r)) });
+      },
     }),
     {
       name: 'pine-app-storage',
@@ -156,6 +203,7 @@ export const useAppStore = create<AppState>()(
         onboardingComplete: state.onboardingComplete,
         completedByMonth: state.completedByMonth,
         sessions: state.sessions,
+        reminders: state.reminders,
         selectedDuration: state.selectedDuration,
         isRunning: state.isRunning,
         sessionStartedAt: state.sessionStartedAt,

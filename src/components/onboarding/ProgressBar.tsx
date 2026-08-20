@@ -2,7 +2,7 @@ import Animated, { interpolateColor, useAnimatedStyle, withTiming } from 'react-
 import { StyleSheet, View } from 'react-native';
 import type { ColorTokens } from '@/theme/tokens';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 function Segment({ filled, colors }: { filled: boolean; colors: ColorTokens }) {
   const progress = useAnimatedStyle(() => ({

@@ -2,7 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Polygon, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { PillButton } from '@/components/PillButton';
 import { Calendar } from '@/components/tracker/Calendar';
 import { StatCard } from '@/components/tracker/StatCard';
@@ -15,6 +15,22 @@ function PlayIcon({ color }: { color: string }) {
   return (
     <Svg width={9} height={11} viewBox="0 0 9 11">
       <Polygon points="0,0 9,5.5 0,11" fill={color} />
+    </Svg>
+  );
+}
+
+function BellIcon({ color }: { color: string }) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 16 16">
+      <Path
+        d="M8 2c-2 0-3.2 1.6-3.2 3.6v2.1c0 .5-.2 1-.6 1.4L3 10.5h10l-1.2-1.4a2 2 0 0 1-.6-1.4V5.6C11.2 3.6 10 2 8 2Z"
+        stroke={color}
+        strokeWidth={1.4}
+        fill="none"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Path d="M6.5 12.5a1.6 1.6 0 0 0 3 0" stroke={color} strokeWidth={1.4} fill="none" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -65,12 +81,22 @@ export default function TrackerScreen() {
             <Text style={[styles.kicker, { color: colors.muted }]}>{formatKicker(today).toUpperCase()}</Text>
             <Text style={[styles.welcome, { color: colors.ink }]}>Welcome, {greetingName}</Text>
           </View>
-          <Pressable
-            onPress={() => router.push('/settings')}
-            style={[styles.settingsButton, { borderColor: colors.line }]}
-          >
-            <SettingsIcon color={colors.ink} />
-          </Pressable>
+          <View style={styles.headerButtons}>
+            <Pressable
+              onPress={() => router.push('/reminders')}
+              accessibilityLabel="Reminders"
+              style={[styles.iconButton, { borderColor: colors.line }]}
+            >
+              <BellIcon color={colors.ink} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/settings')}
+              accessibilityLabel="Settings"
+              style={[styles.iconButton, { borderColor: colors.line }]}
+            >
+              <SettingsIcon color={colors.ink} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.statRow}>
@@ -123,7 +149,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
   },
-  settingsButton: {
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButton: {
     width: 36,
     height: 36,
     borderRadius: 18,

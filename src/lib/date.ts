@@ -10,6 +10,8 @@ const MONTH_LABELS_SHORT = [
 const DAY_LABELS_LONG = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
 ];
+/** Index 0 = Monday ... 6 = Sunday, matching the reminders day grid and the calendar. */
+const DAY_LABELS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const weekdayHeaderLabels = WEEKDAY_LABELS;
 
@@ -96,4 +98,27 @@ export function minutesInMonth(
   }
 
   return total;
+}
+
+/** Zero-padded 24-hour clock, e.g. "07:00". */
+export function formatClock(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/** Describes a reminder's repeat days, index 0 = Monday ... 6 = Sunday. */
+export function describeRepeatDays(days: boolean[]): string {
+  const selectedCount = days.filter(Boolean).length;
+  if (selectedCount === 7) return 'Every day';
+  if (selectedCount === 0) return 'Once, no repeat';
+
+  const isWeekdays = days.slice(0, 5).every(Boolean) && !days[5] && !days[6];
+  if (isWeekdays) return 'Weekdays';
+
+  const isWeekend = days.slice(0, 5).every((d) => !d) && days[5] && days[6];
+  if (isWeekend) return 'Weekends';
+
+  return days
+    .map((on, i) => (on ? DAY_LABELS_SHORT[i] : null))
+    .filter((label): label is string => label !== null)
+    .join(', ');
 }

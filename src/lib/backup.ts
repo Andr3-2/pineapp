@@ -1,8 +1,10 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { cancelReminderNotifications, reminderNotificationContent, syncReminderNotifications } from '@/lib/notifications';
 import {
   useAppStore,
+  type Reminder,
   type SessionDuration,
   type SessionRecord,
   type ThemePreference,
@@ -28,6 +30,7 @@ interface BackupData {
   selectedDuration: SessionDuration;
   completedByMonth: Record<string, number[]>;
   sessions: SessionRecord[];
+  reminders: Reminder[];
 }
 
 const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -69,6 +72,36 @@ function sanitizeSessions(value: unknown): SessionRecord[] {
   return result;
 }
 
+/** Salvages whatever valid reminders it can find, dropping only the individual bad ones. */
+function sanitizeReminders(value: unknown): Reminder[] {
+  if (!Array.isArray(value)) return [];
+
+  const result: Reminder[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const { id, hour, minute, days, enabled } = entry as Record<string, unknown>;
+    if (
+      typeof id === 'string' &&
+      id.length > 0 &&
+      typeof hour === 'number' &&
+      Number.isInteger(hour) &&
+      hour >= 0 &&
+      hour <= 23 &&
+      typeof minute === 'number' &&
+      Number.isInteger(minute) &&
+      minute >= 0 &&
+      minute <= 59 &&
+      Array.isArray(days) &&
+      days.length === 7 &&
+      days.every((d) => typeof d === 'boolean') &&
+      typeof enabled === 'boolean'
+    ) {
+      result.push({ id, hour, minute, days: days as boolean[], enabled });
+    }
+  }
+  return result;
+}
+
 /**
  * Parses a backup as leniently as possible: an individual field that's missing or malformed
  * falls back to a sensible default instead of failing the whole import, so a backup edited or
@@ -104,6 +137,7 @@ function parseBackup(raw: string): BackupData {
       : DEFAULT_DURATION,
     completedByMonth: sanitizeCompletedByMonth(d.completedByMonth),
     sessions: sanitizeSessions(d.sessions),
+    reminders: sanitizeReminders(d.reminders),
   };
 }
 
@@ -119,6 +153,7 @@ function buildBackupPayload() {
       selectedDuration: state.selectedDuration,
       completedByMonth: state.completedByMonth,
       sessions: state.sessions,
+      reminders: state.reminders,
     } satisfies BackupData,
   };
 }
@@ -166,6 +201,14 @@ export async function importBackup(): Promise<'imported' | 'cancelled'> {
   const raw = await file.text();
   const data = parseBackup(raw);
 
+  const oldReminders = useAppStore.getState().reminders;
   useAppStore.getState().restoreData(data);
+
+  // The store swap above doesn't touch the OS notification schedule, so reconcile it here:
+  // drop whatever the previous reminders had scheduled, then (re)schedule the imported ones.
+  const content = reminderNotificationContent(data.selectedDuration);
+  await Promise.all(oldReminders.map((r) => cancelReminderNotifications(r.id)));
+  await Promise.all(data.reminders.map((r) => syncReminderNotifications(r, content)));
+
   return 'imported';
 }
