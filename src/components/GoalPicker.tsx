@@ -5,8 +5,8 @@ import type { ColorTokens } from '@/theme/tokens';
 import type { WeeklyGoal } from '@/store/useAppStore';
 
 const OPTIONS: WeeklyGoal[] = [1, 2, 3, 4, 5, 6, 7];
-const COLUMNS = 4;
-const GAP = 12;
+const COLUMNS = OPTIONS.length;
+const GAP = 8;
 
 export function GoalPicker({
   colors,
@@ -58,11 +58,10 @@ export function GoalPicker({
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: GAP,
   },
   cell: {
-    height: 64,
+    height: 56,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',

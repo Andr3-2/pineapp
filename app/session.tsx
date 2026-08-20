@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
+import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { PillButton } from '@/components/PillButton';
@@ -10,10 +11,13 @@ import { BreathingGlow } from '@/components/session/BreathingGlow';
 import { DurationCard } from '@/components/session/DurationCard';
 import { Forest } from '@/components/session/Forest';
 import { useSessionTimer } from '@/hooks/useSessionTimer';
+import { disableDoNotDisturb, enableDoNotDisturb, isDndPermissionGranted, openDndPermissionSettings } from '@/lib/dnd';
 import { cancelScheduledNotification, scheduleSessionCompleteNotification } from '@/lib/notifications';
 import { useAmbientLoop, useCompletionChime } from '@/lib/sound';
 import { useAppStore, type SessionDuration } from '@/store/useAppStore';
 import { fonts, sessionUi } from '@/theme/tokens';
+
+const KEEP_AWAKE_TAG = 'pine-session-screen';
 
 const DURATIONS: SessionDuration[] = [1, 5, 10, 30];
 
@@ -82,6 +86,36 @@ export default function SessionScreen() {
   useEffect(() => {
     return () => dismissJustFinished();
   }, [dismissJustFinished]);
+
+  // Keep the screen from sleeping for as long as the session screen is on-screen,
+  // not just while a countdown is actively running.
+  useKeepAwake(KEEP_AWAKE_TAG);
+
+  const dndPromptDismissed = useAppStore((s) => s.dndPromptDismissed);
+  const setDndPromptDismissed = useAppStore((s) => s.setDndPromptDismissed);
+  useEffect(() => {
+    let cancelled = false;
+    isDndPermissionGranted().then((granted) => {
+      if (cancelled) return;
+      if (granted) {
+        enableDoNotDisturb();
+      } else if (!dndPromptDismissed) {
+        setDndPromptDismissed(true);
+        Alert.alert(
+          'Do Not Disturb',
+          'Let Pine silence interruptions while you meditate? You can grant this from your phone settings.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open settings', onPress: openDndPermissionSettings },
+          ],
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+      disableDoNotDisturb();
+    };
+  }, []);
 
   const kicker = isRunning ? 'BREATHE' : justFinished ? 'SESSION COMPLETE' : 'GUIDED SESSION';
   const title = isRunning ? 'Stay with it' : justFinished ? 'Well done' : 'How long today?';

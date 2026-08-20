@@ -8,7 +8,7 @@ export function StatCard({
   filled,
   colors,
 }: {
-  value: number;
+  value: number | string;
   label: string;
   filled?: boolean;
   colors: ColorTokens;

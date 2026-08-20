@@ -7,6 +7,11 @@ export type ThemePreference = 'light' | 'dark' | 'device';
 export type WeeklyGoal = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type SessionDuration = 1 | 5 | 10 | 30;
 
+export interface SessionRecord {
+  completedAt: number;
+  minutes: number;
+}
+
 interface AppState {
   // Onboarding
   name: string;
@@ -16,6 +21,7 @@ interface AppState {
 
   // Tracker
   completedByMonth: Record<string, number[]>;
+  sessions: SessionRecord[];
   viewedYear: number;
   viewedMonth: number;
 
@@ -25,6 +31,9 @@ interface AppState {
   sessionStartedAt: number | null;
   sessionDurationSeconds: number;
   justFinished: boolean;
+
+  // Whether the one-time "enable Do Not Disturb" prompt has already been shown on the session screen.
+  dndPromptDismissed: boolean;
 
   setName: (name: string) => void;
   setWeeklyGoal: (goal: WeeklyGoal) => void;
@@ -36,6 +45,7 @@ interface AppState {
     theme: ThemePreference;
     selectedDuration: SessionDuration;
     completedByMonth: Record<string, number[]>;
+    sessions: SessionRecord[];
   }) => void;
 
   pageMonth: (delta: number) => void;
@@ -46,6 +56,7 @@ interface AppState {
   endSessionEarly: () => void;
   finishSession: () => void;
   dismissJustFinished: () => void;
+  setDndPromptDismissed: (dismissed: boolean) => void;
 }
 
 const today = new Date();
@@ -59,6 +70,7 @@ export const useAppStore = create<AppState>()(
       onboardingComplete: false,
 
       completedByMonth: {},
+      sessions: [],
       viewedYear: today.getFullYear(),
       viewedMonth: today.getMonth(),
 
@@ -67,6 +79,8 @@ export const useAppStore = create<AppState>()(
       sessionStartedAt: null,
       sessionDurationSeconds: 10 * 60,
       justFinished: false,
+
+      dndPromptDismissed: false,
 
       setName: (name) => set({ name }),
       setWeeklyGoal: (weeklyGoal) => set({ weeklyGoal }),
@@ -115,16 +129,22 @@ export const useAppStore = create<AppState>()(
               ...get().completedByMonth,
               [key]: [...existing, day].sort((a, b) => a - b),
             };
+        const sessions: SessionRecord[] = [
+          ...get().sessions,
+          { completedAt: now.getTime(), minutes: get().sessionDurationSeconds / 60 },
+        ];
 
         set({
           isRunning: false,
           sessionStartedAt: null,
           justFinished: true,
           completedByMonth,
+          sessions,
         });
       },
 
       dismissJustFinished: () => set({ justFinished: false }),
+      setDndPromptDismissed: (dndPromptDismissed) => set({ dndPromptDismissed }),
     }),
     {
       name: 'pine-app-storage',
@@ -135,10 +155,12 @@ export const useAppStore = create<AppState>()(
         theme: state.theme,
         onboardingComplete: state.onboardingComplete,
         completedByMonth: state.completedByMonth,
+        sessions: state.sessions,
         selectedDuration: state.selectedDuration,
         isRunning: state.isRunning,
         sessionStartedAt: state.sessionStartedAt,
         sessionDurationSeconds: state.sessionDurationSeconds,
+        dndPromptDismissed: state.dndPromptDismissed,
       }),
     },
   ),

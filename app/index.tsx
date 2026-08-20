@@ -6,7 +6,7 @@ import Svg, { Circle, Polygon, Rect } from 'react-native-svg';
 import { PillButton } from '@/components/PillButton';
 import { Calendar } from '@/components/tracker/Calendar';
 import { StatCard } from '@/components/tracker/StatCard';
-import { computeStreak, formatKicker, monthKey, sessionsInMonth } from '@/lib/date';
+import { formatKicker, formatMinutesCalmer, minutesInMonth, monthLabelShort, sessionsInMonth } from '@/lib/date';
 import { useAppStore } from '@/store/useAppStore';
 import { useTheme } from '@/theme/useTheme';
 import { fonts } from '@/theme/tokens';
@@ -38,6 +38,7 @@ export default function TrackerScreen() {
   const name = useAppStore((s) => s.name);
   const weeklyGoal = useAppStore((s) => s.weeklyGoal);
   const completedByMonth = useAppStore((s) => s.completedByMonth);
+  const sessions = useAppStore((s) => s.sessions);
   const viewedYear = useAppStore((s) => s.viewedYear);
   const viewedMonth = useAppStore((s) => s.viewedMonth);
   const pageMonth = useAppStore((s) => s.pageMonth);
@@ -48,10 +49,11 @@ export default function TrackerScreen() {
   }
 
   const today = new Date();
-  const streak = computeStreak(completedByMonth, today);
-  const sessionsThisMonth = sessionsInMonth(completedByMonth, today.getFullYear(), today.getMonth());
-  const completedDays = completedByMonth[monthKey(viewedYear, viewedMonth)] ?? [];
-  const monthShort = today.toLocaleString('en-US', { month: 'short' });
+  const isViewingCurrentMonth = viewedYear === today.getFullYear() && viewedMonth === today.getMonth();
+  const viewedMonthShort = monthLabelShort(viewedMonth);
+  const minutesInViewedMonth = minutesInMonth(sessions, completedByMonth, viewedYear, viewedMonth);
+  const sessionsInViewedMonth = sessionsInMonth(completedByMonth, viewedYear, viewedMonth);
+  const calmerLabel = isViewingCurrentMonth ? 'calmer this month' : `calmer in ${viewedMonthShort}`;
   const greetingName = name.trim() || 'friend';
 
   return (
@@ -72,15 +74,15 @@ export default function TrackerScreen() {
         </View>
 
         <View style={styles.statRow}>
-          <StatCard value={streak} label="day streak" filled colors={colors} />
-          <StatCard value={sessionsThisMonth} label={`sessions in ${monthShort}`} colors={colors} />
+          <StatCard value={formatMinutesCalmer(minutesInViewedMonth)} label={calmerLabel} filled colors={colors} />
+          <StatCard value={sessionsInViewedMonth} label={`sessions in ${viewedMonthShort}`} colors={colors} />
           <StatCard value={weeklyGoal} label="days a week goal" colors={colors} />
         </View>
 
         <Calendar
           year={viewedYear}
           month={viewedMonth}
-          completedDays={completedDays}
+          completedByMonth={completedByMonth}
           today={today}
           onPrevMonth={() => pageMonth(-1)}
           onNextMonth={() => pageMonth(1)}

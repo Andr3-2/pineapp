@@ -49,32 +49,12 @@ export function formatKicker(date: Date): string {
   return `${weekday}, ${date.getDate()} ${MONTH_LABELS_SHORT[date.getMonth()]}`;
 }
 
-/**
- * Streak = consecutive completed days walking backward from today.
- * Today counts if completed, but an incomplete today does not break the streak.
- */
-export function computeStreak(
-  completedByMonth: Record<string, number[]>,
-  today: Date,
-): number {
-  const isDone = (d: Date) => {
-    const key = monthKey(d.getFullYear(), d.getMonth());
-    return (completedByMonth[key] ?? []).includes(d.getDate());
-  };
-
-  let streak = 0;
-  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  if (!isDone(cursor)) {
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  while (isDone(cursor)) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
+/** Formats a total minutes count as the calmer-minutes card's headline value, e.g. "30min" or "1h30". */
+export function formatMinutesCalmer(totalMinutes: number): string {
+  if (totalMinutes < 60) return `${totalMinutes}min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes === 0 ? `${hours}h` : `${hours}h${String(minutes).padStart(2, '0')}`;
 }
 
 export function sessionsInMonth(
@@ -83,4 +63,37 @@ export function sessionsInMonth(
   month: number,
 ): number {
   return (completedByMonth[monthKey(year, month)] ?? []).length;
+}
+
+/** Assumed duration for a completed day with no matching session record (e.g. history from before per-session logging existed). */
+const ASSUMED_MINUTES_WITHOUT_RECORD = 5;
+
+/**
+ * Sums actual logged session minutes for the given month. A day marked complete in
+ * `completedByMonth` but with no matching entry in `sessions` (data from before
+ * per-session logging existed) contributes the assumed default instead of nothing.
+ */
+export function minutesInMonth(
+  sessions: Array<{ completedAt: number; minutes: number }>,
+  completedByMonth: Record<string, number[]>,
+  year: number,
+  month: number,
+): number {
+  const daysWithRecords = new Set<number>();
+  let total = 0;
+
+  for (const session of sessions) {
+    const at = new Date(session.completedAt);
+    if (at.getFullYear() === year && at.getMonth() === month) {
+      total += session.minutes;
+      daysWithRecords.add(at.getDate());
+    }
+  }
+
+  const completedDays = completedByMonth[monthKey(year, month)] ?? [];
+  for (const day of completedDays) {
+    if (!daysWithRecords.has(day)) total += ASSUMED_MINUTES_WITHOUT_RECORD;
+  }
+
+  return total;
 }
