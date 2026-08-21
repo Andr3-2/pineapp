@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to rebuild and (re-)publish, e.g. v0.2.0'
+        required: true
 
 permissions:
   contents: write
@@ -13,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -33,12 +40,16 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk "pine-${{ github.ref_name }}.apk"
+        run: cp android/app/build/outputs/apk/release/app-release.apk "pine-${{ inputs.tag || github.ref_name }}.apk"
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" "pine-${{ github.ref_name }}.apk" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+          TAG="${{ inputs.tag || github.ref_name }}"
+          ASSET="pine-${TAG}.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" --title "$TAG" --generate-notes
+          fi
